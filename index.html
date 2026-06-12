@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sponsored Content Workflow</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0d;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    padding: 32px 24px 60px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #ffffff;
+  }
+  header p {
+    font-size: 14px;
+    color: #666;
+    margin-top: 6px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 36px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #aaa;
+  }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* Swimlane container */
+  .swimlanes {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr 1fr;
+    gap: 0;
+    max-width: 1200px;
+    margin: 0 auto;
+    border: 1px solid #222;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  /* Phase labels (left column) */
+  .phase-col {
+    background: #111;
+    border-right: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+  }
+  .phase-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #555;
+    text-align: center;
+    border-bottom: 1px solid #1c1c1c;
+  }
+
+  /* Lane headers */
+  .lane-header {
+    background: #141414;
+    border-bottom: 1px solid #222;
+    padding: 18px 16px;
+    text-align: center;
+  }
+  .lane-header .role-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .lane-header .role-title {
+    font-size: 11px;
+    color: #555;
+    margin-top: 3px;
+  }
+  .lane-header .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    margin: 0 auto 8px;
+  }
+
+  /* Lane cells */
+  .lane-cell {
+    padding: 12px 14px;
+    border-right: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    position: relative;
+    vertical-align: top;
+  }
+  .lane-cell:last-child { border-right: none; }
+  .lane-cell.empty { background: #0d0d0d; }
+  .lane-cell.active { background: #111; }
+
+  /* Phase row: controls height of each row */
+  .phase-row {
+    display: contents;
+  }
+
+  /* Node card */
+  .node {
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 12px 14px;
+    width: 100%;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    border: 1.5px solid transparent;
+    position: relative;
+  }
+  .node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  }
+  .node.dimmed { opacity: 0.25; }
+  .node.highlighted { box-shadow: 0 0 0 2px currentColor, 0 8px 24px rgba(0,0,0,0.6); }
+
+  .node-icon { font-size: 20px; margin-bottom: 6px; }
+  .node-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+  .node-desc {
+    font-size: 11px;
+    color: #777;
+    line-height: 1.4;
+  }
+  .node-step {
+    position: absolute;
+    top: 8px; right: 10px;
+    font-size: 10px;
+    color: #444;
+    font-weight: 600;
+  }
+
+  /* Node colors */
+  .node.sales    { border-color: #3B82F6; background: #0f1e35; }
+  .node.sales .node-icon, .node.sales .node-label { color: #93C5FD; }
+  .node.contract { border-color: #8B5CF6; background: #1a1030; }
+  .node.contract .node-icon, .node.contract .node-label { color: #C4B5FD; }
+  .node.ops      { border-color: #F59E0B; background: #2a1f0a; }
+  .node.ops .node-icon, .node.ops .node-label { color: #FCD34D; }
+  .node.content  { border-color: #10B981; background: #0a2218; }
+  .node.content .node-icon, .node.content .node-label { color: #6EE7B7; }
+  .node.review   { border-color: #EC4899; background: #2a0e1e; }
+  .node.review .node-icon, .node.review .node-label { color: #F9A8D4; }
+  .node.publish  { border-color: #EF4444; background: #2a0a0a; }
+  .node.publish .node-icon, .node.publish .node-label { color: #FCA5A5; }
+  .node.decision { border-color: #A855F7; background: #1e0a2e; border-style: dashed; }
+  .node.decision .node-icon, .node.decision .node-label { color: #D8B4FE; }
+
+  /* Arrow connector between nodes in same lane */
+  .arrow-down {
+    width: 2px;
+    height: 20px;
+    background: linear-gradient(to bottom, #333, #222);
+    margin: 0 auto;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .arrow-down::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #333;
+  }
+
+  /* Cross-lane handoff indicator */
+  .handoff {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #555;
+    padding: 4px 8px;
+    background: #161616;
+    border-radius: 20px;
+    border: 1px solid #2a2a2a;
+    margin-top: 4px;
+    align-self: flex-start;
+  }
+
+  /* Phase labels */
+  .phase-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+  }
+
+  /* Note box */
+  .note-box {
+    max-width: 1200px;
+    margin: 28px auto 0;
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-left: 3px solid #F59E0B;
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .note-box .note-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .note-box .note-text { font-size: 12px; color: #999; line-height: 1.6; }
+  .note-box .note-text strong { color: #FCD34D; }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #ddd;
+    max-width: 240px;
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    display: none;
+    line-height: 1.5;
+  }
+  .tooltip strong { color: #fff; display: block; margin-bottom: 4px; }
+
+  /* Phase row background */
+  .phase-bg-sales    { background: rgba(59,130,246,0.03); }
+  .phase-bg-contract { background: rgba(139,92,246,0.03); }
+  .phase-bg-ops      { background: rgba(245,158,11,0.03); }
+  .phase-bg-content  { background: rgba(16,185,129,0.03); }
+  .phase-bg-review   { background: rgba(236,72,153,0.03); }
+  .phase-bg-publish  { background: rgba(239,68,68,0.03); }
+
+  /* Grid layout using CSS grid areas */
+  .flow-grid {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr 1fr;
+    grid-auto-rows: auto;
+    max-width: 1200px;
+    margin: 0 auto;
+    border: 1px solid #1e1e1e;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .grid-header {
+    background: #111;
+    padding: 18px 16px;
+    text-align: center;
+    border-bottom: 2px solid #222;
+    border-right: 1px solid #222;
+  }
+  .grid-header:last-child { border-right: none; }
+  .grid-header .avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    margin: 0 auto 8px;
+  }
+  .grid-header .role-name { font-size: 14px; font-weight: 700; }
+  .grid-header .role-title { font-size: 11px; color: #555; margin-top: 3px; }
+
+  .phase-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    border-right: 1px solid #1e1e1e;
+    border-bottom: 1px solid #1a1a1a;
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #3a3a3a;
+    background: #0d0d0d;
+    min-height: 100px;
+  }
+
+  .cell {
+    padding: 14px 12px;
+    border-right: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .cell:last-child { border-right: none; }
+  .cell.empty {
+    background: repeating-linear-gradient(
+      -45deg,
+      #0d0d0d,
+      #0d0d0d 4px,
+      #0e0e0e 4px,
+      #0e0e0e 8px
+    );
+  }
+
+  /* Sub-step connector inside a cell */
+  .connector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #444;
+    padding-left: 4px;
+  }
+  .connector::before {
+    content: '';
+    width: 1px;
+    height: 14px;
+    background: #333;
+    flex-shrink: 0;
+    margin-left: 6px;
+  }
+
+  /* Handoff row */
+  .handoff-row {
+    grid-column: 1 / -1;
+    background: #0f0f0f;
+    border-bottom: 1px dashed #222;
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: #555;
+  }
+  .handoff-row .arrow-right {
+    font-size: 14px;
+    color: #333;
+  }
+  .handoff-badge {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 10px;
+    color: #666;
+    font-weight: 600;
+  }
+
+  /* Node compact */
+  .n {
+    background: #151515;
+    border-radius: 9px;
+    padding: 11px 13px;
+    border: 1.5px solid #252525;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .n:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+  .n.blue   { border-color: #3B82F6; background: #0c1a2e; }
+  .n.purple { border-color: #8B5CF6; background: #150d28; }
+  .n.amber  { border-color: #F59E0B; background: #221a08; }
+  .n.green  { border-color: #10B981; background: #091d14; }
+  .n.pink   { border-color: #EC4899; background: #250d1a; }
+  .n.red    { border-color: #EF4444; background: #220808; }
+  .n.violet { border-color: #A855F7; background: #190928; border-style: dashed; }
+
+  .n-icon { font-size: 18px; margin-bottom: 5px; display: block; }
+  .n-title { font-size: 12px; font-weight: 700; color: #eee; line-height: 1.3; margin-bottom: 3px; }
+  .n-sub   { font-size: 10.5px; color: #666; line-height: 1.4; }
+  .n-num   { position: absolute; top: 7px; right: 9px; font-size: 9px; color: #3a3a3a; font-weight: 700; }
+
+  .mini-arrow {
+    width: 1px;
+    height: 16px;
+    background: #2a2a2a;
+    margin: 0 auto;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .mini-arrow::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #2a2a2a;
+  }
+
+  /* Section within a cell (for sub-flows) */
+  .branch-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+  }
+  .branch-yes { background: rgba(16,185,129,0.15); color: #6EE7B7; }
+  .branch-no  { background: rgba(239,68,68,0.15);  color: #FCA5A5; }
+  .branch-opt { background: rgba(245,158,11,0.15); color: #FCD34D; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sponsored Content Workflow</h1>
+  <p>From initial pitch to published article — roles, tools, and handoffs</p>
+</header>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#3B82F6"></div> Sales & Outreach</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8B5CF6"></div> Contracts & CRM</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#F59E0B"></div> Operations & Briefing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#10B981"></div> Content Creation</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#EC4899"></div> Review & Approval</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#EF4444"></div> Publishing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#A855F7;border-radius:2px;outline:1px dashed #A855F7;outline-offset:2px"></div> Decision Point</div>
+</div>
+
+<!-- Main Grid -->
+<div class="flow-grid" id="flowGrid">
+
+  <!-- Headers -->
+  <div class="grid-header" style="border-right:1px solid #222">
+    <span style="font-size:11px;color:#444;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Phase</span>
+  </div>
+  <div class="grid-header" style="border-right:1px solid #222">
+    <div class="avatar" style="background:#0c1a2e;border:1.5px solid #3B82F6">🧑‍💼</div>
+    <div class="role-name" style="color:#93C5FD">Justin</div>
+    <div class="role-title">Commerce Director</div>
+  </div>
+  <div class="grid-header" style="border-right:1px solid #222">
+    <div class="avatar" style="background:#091d14;border:1.5px solid #10B981">👩‍💻</div>
+    <div class="role-name" style="color:#6EE7B7">Amy</div>
+    <div class="role-title">Partnerships Coordinator</div>
+  </div>
+  <div class="grid-header">
+    <div class="avatar" style="background:#221a08;border:1.5px solid #F59E0B">✍️</div>
+    <div class="role-name" style="color:#FCD34D">Kris</div>
+    <div class="role-title">Senior Commerce Editor</div>
+  </div>
+
+  <!-- ── PHASE 1: Sales ── -->
+  <div class="phase-side" style="color:#3B82F6;border-color:#1a2a3a">Sales</div>
+
+  <div class="cell" style="background:#0c1420">
+    <div class="n blue" data-tip="Justin identifies and reaches out to companies, agencies, and clients to propose sponsored content partnerships.">
+      <span class="n-icon">📣</span>
+      <span class="n-num">01</span>
+      <div class="n-title">Pitch to Clients</div>
+      <div class="n-sub">Outreach to companies, agencies &amp; clients for sponsored content deals</div>
+    </div>
+  </div>
+  <div class="cell empty"></div>
+  <div class="cell empty"></div>
+
+  <!-- ── PHASE 2: Contract ── -->
+  <div class="phase-side" style="color:#8B5CF6;border-color:#1a1428">Contract</div>
+
+  <div class="cell" style="background:#110d22">
+    <div class="n purple" data-tip="Justin drafts and sends the contract via Concord, and simultaneously logs the new deal in the Boostr CRM.">
+      <span class="n-icon">📄</span>
+      <span class="n-num">02</span>
+      <div class="n-title">Draft Contract</div>
+      <div class="n-sub">Build contract in <strong style="color:#C4B5FD">Concord</strong> + add deal to <strong style="color:#C4B5FD">Boostr CRM</strong></div>
+    </div>
+    <div class="mini-arrow"></div>
+    <div class="n purple" data-tip="Once both parties have signed, the fully-executed contract is stored in Boostr and Justin submits a request for the corresponding invoice.">
+      <span class="n-icon">✅</span>
+      <span class="n-num">03</span>
+      <div class="n-title">Execute Contract</div>
+      <div class="n-sub">Signed by client &amp; Valnet → stored in <strong style="color:#C4B5FD">Boostr</strong>, invoice requested</div>
+    </div>
+  </div>
+  <div class="cell empty"></div>
+  <div class="cell empty"></div>
+
+  <!-- ── HANDOFF 1: Justin → Amy ── -->
+  <div class="handoff-row">
+    <span>🤝</span>
+    <span class="handoff-badge">Handoff</span>
+    <span>Justin loops Amy into the email chain and sends the <strong style="color:#FCD34D">Google Form link</strong> to collect briefing materials (press releases, image assets, etc.)</span>
+    <span class="arrow-right">→</span>
+    <span class="handoff-badge" style="border-color:#10B981;color:#6EE7B7">Amy takes over</span>
+  </div>
+
+  <!-- ── PHASE 3: Briefing ── -->
+  <div class="phase-side" style="color:#F59E0B;border-color:#2a1e08">Briefing</div>
+
+  <div class="cell" style="background:#1a1508">
+    <div class="n amber" data-tip="Justin CCs Amy on the email thread and shares the Google Form link with the client to gather all necessary assets and briefing details.">
+      <span class="n-icon">📋</span>
+      <span class="n-num">04</span>
+      <div class="n-title">Send Brief Form</div>
+      <div class="n-sub">CC Amy, share <strong style="color:#FCD34D">Google Form</strong> to collect press releases &amp; image assets</div>
+    </div>
+  </div>
+  <div class="cell empty"></div>
+  <div class="cell empty"></div>
+
+  <!-- ── PHASE 4: Content Creation ── -->
+  <div class="phase-side" style="color:#10B981;border-color:#0a1e14">Content</div>
+
+  <div class="cell empty"></div>
+  <div class="cell" style="background:#091510">
+    <div class="n green" data-tip="With the brief in hand, Amy assigns the sponsored article to one of five to seven available freelance writers. The first draft is due to the client within seven days.">
+      <span class="n-icon">✍️</span>
+      <span class="n-num">05</span>
+      <div class="n-title">Assign to Writer</div>
+      <div class="n-sub">Brief assigned to freelance writer — first draft due to client within <strong style="color:#6EE7B7">7 days</strong></div>
+    </div>
+  </div>
+  <div class="cell" style="background:#0e1208;padding-top:24px">
+    <div style="font-size:10px;color:#554f2a;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Occasional</div>
+    <div class="n" style="border-color:#F59E0B;background:#1c1808;border-style:dashed" data-tip="Kris occasionally steps in to write sponsored content when an article is especially time-sensitive or when the freelance pool is stretched thin.">
+      <span class="n-icon">⚡</span>
+      <div class="n-title" style="color:#FCD34D">Writes Content</div>
+      <div class="n-sub">Steps in when content is super timely or freelance capacity is short</div>
+    </div>
+  </div>
+
+  <!-- ── PHASE 5: Review ── -->
+  <div class="phase-side" style="color:#EC4899;border-color:#28101e">Review</div>
+
+  <div class="cell empty"></div>
+  <div class="cell" style="background:#1c0c14">
+    <div class="n pink" data-tip="Amy edits the draft and sends it to the client for review and approval.">
+      <span class="n-icon">🔍</span>
+      <span class="n-num">06</span>
+      <div class="n-title">Edit &amp; Send Draft</div>
+      <div class="n-sub">Amy edits content, then sends first draft to client for approval</div>
+    </div>
+    <div class="mini-arrow"></div>
+    <div class="n violet" data-tip="Does the client require edits?">
+      <span class="n-icon">❓</span>
+      <div class="n-title">Client Feedback?</div>
+      <div class="branch-no" style="margin-top:4px">✗ Edits needed → writer revises within 24 hrs</div>
+      <div class="branch-yes" style="margin-top:4px">✓ Approved → move to Emaki</div>
+    </div>
+    <div class="mini-arrow"></div>
+    <div class="n pink" data-tip="If the client requests changes, the article is returned to the writer. Revisions are expected within 24 hours. This loop can repeat as needed until the client approves.">
+      <span class="n-icon">🔄</span>
+      <span class="n-num">07–08</span>
+      <div class="n-title">Revision Loop</div>
+      <div class="n-sub">Edits sent back to writer (<strong style="color:#F9A8D4">24-hr turnaround</strong>). Next draft sent to client. Repeat until approved.</div>
+    </div>
+    <div class="mini-arrow"></div>
+    <div class="n green" data-tip="Once the client approves the article, Amy requests the writer upload and format the content in Emaki, the internal publishing platform.">
+      <span class="n-icon">💻</span>
+      <span class="n-num">09</span>
+      <div class="n-title">Upload to Emaki</div>
+      <div class="n-sub">Writer adds approved article to <strong style="color:#6EE7B7">Emaki</strong> with proper formatting</div>
+    </div>
+  </div>
+  <div class="cell empty"></div>
+
+  <!-- ── PHASE 6: Payment ── -->
+  <div class="phase-side" style="color:#F59E0B;border-color:#2a1e08">Payment</div>
+
+  <div class="cell empty"></div>
+  <div class="cell" style="background:#1a1508">
+    <div class="n violet" data-tip="Amy is primarily responsible for verifying payment before the article goes live. Justin will occasionally step in to check as well.">
+      <span class="n-icon">💰</span>
+      <span class="n-num">10</span>
+      <div class="n-title">Verify Payment</div>
+      <div class="n-sub">Confirms payment has been received. <em style="color:#554f2a">Justin occasionally assists.</em></div>
+    </div>
+    <div class="mini-arrow"></div>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1">
+        <div class="branch-no" style="margin-bottom:6px;font-size:9px">✗ Not paid</div>
+        <div class="n" style="border-color:#EF4444;background:#1c0808">
+          <span class="n-icon" style="font-size:14px">📧</span>
+          <div class="n-title" style="font-size:11px;color:#FCA5A5">Request Receipt</div>
+          <div class="n-sub">Ask client for payment confirmation</div>
+        </div>
+      </div>
+      <div style="flex:1">
+        <div class="branch-yes" style="margin-bottom:6px;font-size:9px">✓ Paid</div>
+        <div class="n" style="border-color:#10B981;background:#091d14">
+          <span class="n-icon" style="font-size:14px">📅</span>
+          <div class="n-title" style="font-size:11px;color:#6EE7B7">Schedule Post</div>
+          <div class="n-sub">Content is scheduled for publication</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cell empty"></div>
+
+  <!-- ── PHASE 7: Publish ── -->
+  <div class="phase-side" style="color:#EF4444;border-color:#2a0e0e">Publish</div>
+
+  <div class="cell" style="background:#1a0808">
+    <div class="n red" data-tip="Justin emails the client confirming the article is now live. The email includes a link to the sponsored article, social media posts, and a screenshot of the homepage pin.">
+      <span class="n-icon">📨</span>
+      <span class="n-num">12</span>
+      <div class="n-title">Client Notification</div>
+      <div class="n-sub">Justin emails client: article link, social posts &amp; homepage pin screenshot</div>
+    </div>
+  </div>
+  <div class="cell" style="background:#1a0808">
+    <div class="n red" data-tip="Amy shares the published article in two Slack channels: #tech-sponsored-content for newsletter, social, and homepage pin coordination; and #sponsored-revenue-tracking so Bruce and Marc can mark the revenue as received in PubInsights.">
+      <span class="n-icon">📢</span>
+      <span class="n-num">11</span>
+      <div class="n-title">Share &amp; Track</div>
+      <div class="n-sub">Post in <strong style="color:#FCA5A5">#tech-sponsored-content</strong> (newsletter, social, pin) + <strong style="color:#FCA5A5">#sponsored-revenue-tracking</strong> (PubInsights)</div>
+    </div>
+  </div>
+  <div class="cell empty"></div>
+
+</div><!-- /flow-grid -->
+
+<!-- Notes -->
+<div class="note-box">
+  <div class="note-icon">💡</div>
+  <div class="note-text">
+    <strong style="color:#FCD34D">Note — Kris (Senior Commerce Editor):</strong>
+    Kris occasionally jumps in to write sponsored content when a piece is super timely or when the freelance writer pool doesn't have enough capacity to cover active sponsored articles.
+  </div>
+</div>
+
+<!-- Tooltip element -->
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+  const tooltip = document.getElementById('tooltip');
+  let activeNode = null;
+
+  document.querySelectorAll('[data-tip]').forEach(node => {
+    node.addEventListener('mouseenter', e => {
+      const tip = node.getAttribute('data-tip');
+      const title = node.querySelector('.n-title')?.textContent || '';
+      tooltip.innerHTML = `<strong>${title}</strong>${tip}`;
+      tooltip.style.display = 'block';
+      positionTooltip(e);
+    });
+    node.addEventListener('mousemove', positionTooltip);
+    node.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+    node.addEventListener('click', e => {
+      e.stopPropagation();
+      const allNodes = document.querySelectorAll('.n');
+      if (activeNode === node) {
+        allNodes.forEach(n => n.classList.remove('dimmed'));
+        activeNode = null;
+      } else {
+        allNodes.forEach(n => n.classList.add('dimmed'));
+        node.classList.remove('dimmed');
+        activeNode = node;
+      }
+    });
+  });
+
+  document.addEventListener('click', () => {
+    if (activeNode) {
+      document.querySelectorAll('.n').forEach(n => n.classList.remove('dimmed'));
+      activeNode = null;
+    }
+  });
+
+  function positionTooltip(e) {
+    const x = e.clientX + 14;
+    const y = e.clientY + 14;
+    const maxX = window.innerWidth - 260;
+    const maxY = window.innerHeight - 100;
+    tooltip.style.left = Math.min(x, maxX) + 'px';
+    tooltip.style.top  = Math.min(y, maxY) + 'px';
+  }
+</script>
+</body>
+</html>
